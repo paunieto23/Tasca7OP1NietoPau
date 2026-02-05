@@ -1,88 +1,128 @@
-# Task Manager API (JWT + Roles)
+# Task Manager API - Advanced RBAC & Audit System
 
-API d'un gestor de tasques amb **autenticació JWT**, **autorització per propietari** i **rols (user/admin)**.
+Aquesta API és una extensió del Task Manager que implementa un sistema avançat de **Control d'Accés Basat en Rols (RBAC)** amb permisos granulars i un registre complet d'**Auditoria**.
 
-## Requisits
-- Node.js 18+
-- MongoDB (local o Atlas)
+## 🚀 Instal·lació i Setup
 
-## Instal·lació
+### 1. Requisits Prèvis
+- Node.js instal·lat
+- MongoDB funcionant (localment o Atlas)
 
+### 2. Instal·lació
 ```bash
-cd task-manager-api
+# Instal·lar dependències
 npm install
+
+# Configurar variables d'entorn
+# Crear un fitxer .env a l'arrel amb:
+PORT=3000
+MONGODB_URI=mongodb://127.0.0.1:27017/task_manager
+JWT_SECRET=la_teva_clau_secreta_super_segura
 ```
 
-## Variables d'entorn
-Copia el fitxer d'exemple i edita'l:
-
+### 3. Execució
 ```bash
-cp .env.example .env
-```
+# Mode desenvolupament (amb nodemon)
+npm run dev
 
-Variables (mínimes):
-- `MONGODB_URI`
-- `JWT_SECRET`
-- `JWT_EXPIRES_IN`
-
-## Engegar el projecte
-
-```bash
+# Mode producció
 npm start
 ```
 
-Mode desenvolupament:
+AL iniciar el servidor per primera vegada, s'executaran automàticament els **seeds** que crearan els rols i permisos del sistema.
 
-```bash
-npm run dev
+---
+
+## 🔐 Sistema de Permisos (RBAC)
+
+El sistema utilitza una arquitectura granular on els **Usuaris** tenen **Rols**, i els **Rols** tenen **Permisos**.
+
+### Estructura de Models
+
+```mermaid
+erDiagram
+    User ||--|{ Role : "té"
+    Role ||--|{ Permission : "conté"
+    User ||--o{ AuditLog : "genera"
+    
+    User {
+        ObjectId _id
+        String name
+        String email
+        Array roles
+    }
+    
+    Role {
+        ObjectId _id
+        String name
+        Array permissions
+    }
+    
+    Permission {
+        ObjectId _id
+        String name
+        String category
+    }
+
+    AuditLog {
+        ObjectId _id
+        ObjectId userId
+        String action
+        String status
+    }
 ```
 
-## Autenticació
-Totes les rutes protegides requereixen:
+### Rols del Sistema
 
-`Authorization: Bearer <token>`
+1.  **Admin**: Accés total (`isSystemRole: true`).
+2.  **User**: Accés bàsic a les seves pròpies tasques (`isSystemRole: true`).
+3.  **Viewer**: Només pot llegir tasques (`isSystemRole: false`).
+4.  **Editor**: Pot crear, llegir, editar i esborrar tasques (`isSystemRole: false`).
 
-## Endpoints
+---
 
-### Auth (`/api/auth`)
-- `POST /register`
-- `POST /login`
-- `GET /me` (protected)
-- `PUT /profile` (protected)
-- `PUT /change-password` (protected)
+## 📋 Exemples d'Ús
 
-### Tasks (`/api/tasks`) – Totes protegides
-- `GET /stats`
-- `POST /`
-- `GET /`
-- `GET /:id`
-- `PUT /:id`
-- `DELETE /:id`
-- `PUT /:id/image` (body: `{ "imageUrl": "..." }`)
-- `PUT /:id/image/reset`
+### Autenticació
+*   **Registre**: Assigna automàticament el rol `user`.
+*   **Login**: Retorna el token JWT i la llista de permisos efectius de l'usuari.
 
-### Upload (`/api/upload`) – Totes protegides
-- `POST /local` *(placeholder)*
-- `POST /cloud` *(placeholder)*
+### Gestió de Rols (Admin)
+```http
+POST /api/admin/roles
+Authorization: Bearer <token_admin>
+Content-Type: application/json
 
-### Admin (`/api/admin`) – Només rol `admin`
-- `GET /users`
-- `GET /tasks`
-- `DELETE /users/:id`
-- `PUT /users/:id/role` (body: `{ "role": "admin" | "user" }`)
+{
+  "name": "moderator",
+  "permissions": ["<ID_PERMIS_1>", "<ID_PERMIS_2>"]
+}
+```
 
-## Notes de seguretat
-- La contrasenya es guarda xifrada (bcrypt) i **mai** es retorna.
-- Les tasques s'associen automàticament a `req.user._id`.
-- Un usuari només pot veure/modificar les seves tasques.
+### Verificació de Permisos
+Pots verificar si tens permís per fer una acció específica:
+```http
+POST /api/auth/check-permission
+{
+  "permission": "tasks:create"
+}
+```
 
-## Fitxers clau
-- `models/User.js`
-- `models/Task.js`
-- `middleware/auth.js`
-- `middleware/roleCheck.js`
-- `controllers/*`
-- `routes/*`
-- `utils/generateToken.js`
-- `utils/errorResponse.js`
+---
 
+## 🛡️ Errors i Seguretat
+
+### Casos d'Error Comuns
+
+| Codi | Error | Descripció |
+|------|-------|------------|
+| 401 | `No autoritzat` | Manca el token o és invàlid. |
+| 403 | `No tens permís...` | L'usuari no té el permís `tasks:create` (o el que pertoqui). |
+| 404 | `Recurs no trobat` | ID invàlid o recurs inexistent. |
+| 400 | `Error de validació` | Dades incorrectes al body (ex: email ja existeix). |
+
+### Auditoria
+Totes les accions de modificació (POST, PUT, DELETE) i els intents d'accés denegats (403) es registren automàticament a la col·lecció `AuditLog`.
+
+Pots consultar els logs com a admin a:
+`GET /api/admin/audit-logs`
