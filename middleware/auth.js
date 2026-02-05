@@ -8,7 +8,7 @@ const ErrorResponse = require('../utils/errorResponse');
  * - Verifica token
  * - Carrega usuari i el posa a req.user
  */
-module.exports = async function auth(req, res, next) {
+const auth = async function (req, res, next) {
   try {
     const header = req.headers.authorization || '';
     const [scheme, token] = header.split(' ');
@@ -35,3 +35,6 @@ module.exports = async function auth(req, res, next) {
     return next(err);
   }
 };
+
+module.exports = auth;
+module.exports.protect = auth;

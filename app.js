@@ -80,11 +80,19 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/task_manager';
 
+const seedPermissions = require('./utils/seedPermissions');
+const seedRoles = require('./utils/seedRoles');
+
 mongoose
   .connect(MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     // eslint-disable-next-line no-console
     console.log('✅ MongoDB connected');
+
+    // Ejecutar seeds
+    await seedPermissions();
+    await seedRoles();
+
     app.listen(PORT, () => {
       // eslint-disable-next-line no-console
       console.log(`🚀 Server running on port ${PORT}`);

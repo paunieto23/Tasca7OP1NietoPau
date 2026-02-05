@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 
-const auth = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const checkPermission = require('../middleware/checkPermission');
+const auditMiddleware = require('../middleware/auditMiddleware');
 const { createTaskValidation, updateTaskValidation } = require('../middleware/validators/taskValidators');
 const {
   createTask,
@@ -15,15 +17,57 @@ const {
 } = require('../controllers/taskController');
 
 // Totes les rutes de tasques requereixen auth
-router.use(auth);
+router.use(protect);
 
-router.get('/stats', getTaskStats);
-router.post('/', createTaskValidation, createTask);
-router.get('/', getAllTasks);
-router.get('/:id', getTaskById);
-router.put('/:id', updateTaskValidation, updateTask);
-router.delete('/:id', deleteTask);
-router.put('/:id/image', updateTaskImage);
-router.put('/:id/image/reset', resetTaskImage);
+router.get('/stats', checkPermission('tasks:read'), getTaskStats);
+
+router.post(
+  '/',
+  checkPermission('tasks:create'),
+  auditMiddleware('tasks:create', 'task'),
+  createTaskValidation,
+  createTask
+);
+
+router.get(
+  '/',
+  checkPermission('tasks:read'),
+  getAllTasks
+);
+
+router.get(
+  '/:id',
+  checkPermission('tasks:read'),
+  getTaskById
+);
+
+router.put(
+  '/:id',
+  checkPermission('tasks:update'),
+  auditMiddleware('tasks:update', 'task'),
+  updateTaskValidation,
+  updateTask
+);
+
+router.delete(
+  '/:id',
+  checkPermission('tasks:delete'),
+  auditMiddleware('tasks:delete', 'task'),
+  deleteTask
+);
+
+router.put(
+  '/:id/image',
+  checkPermission('tasks:update'),
+  auditMiddleware('tasks:update-image', 'task'),
+  updateTaskImage
+);
+
+router.put(
+  '/:id/image/reset',
+  checkPermission('tasks:update'),
+  auditMiddleware('tasks:reset-image', 'task'),
+  resetTaskImage
+);
 
 module.exports = router;
